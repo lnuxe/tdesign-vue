@@ -256,7 +256,22 @@ export default defineComponent({
       let currentDate: DateMultipleValue;
       if (props.mode !== 'week') isSameDate = currentValue.some((val) => isSame(parseToDayjs(val, formatRef.value.format).toDate(), date, props.mode, dayjsLocale));
       else {
-        isSameDate = currentValue.some((val) => val === dayjs(date).locale(dayjsLocale).format(formatRef.value.format));
+        // #3922: firstDayOfWeek 与 locale 周起始不一致时，面板一行会跨越两个自然周；
+        // 点击行的任意格子都应选中行首（周数列标注）所在的那一周，否则“点 W40 会选中 W41”
+        const firstDayOfWeek = props.firstDayOfWeek || global.value.firstDayOfWeek;
+        const offset = (date.getDay() - firstDayOfWeek + 7) % 7;
+        const rowStartDate = offset === 0 ? date : dayjs(date).subtract(offset, 'day').toDate();
+        isSameDate = currentValue.some((val) => val === dayjs(rowStartDate).locale(dayjsLocale).format(formatRef.value.format));
+        if (isSameDate) {
+          currentDate = currentValue.filter(
+            (val) => val !== dayjs(rowStartDate).locale(dayjsLocale).format(formatRef.value.format),
+          );
+          return currentDate;
+        }
+        currentDate = currentValue.concat(
+          formatDate(rowStartDate, { format: formatRef.value.format, targetFormat: formatRef.value.valueType, dayjsLocale }),
+        );
+        return currentDate;
       }
 
       if (!isSameDate) {

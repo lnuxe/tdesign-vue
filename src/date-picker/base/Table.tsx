@@ -55,7 +55,7 @@ export default defineComponent({
         const endYear = endObj && endObj.year();
         const endWeek = endObj?.locale?.(dayjsLocale)?.week?.();
 
-        const targetObj = parseToDayjs(targetValue, props.format);
+        const targetObj = parseToDayjs(targetValue, props.format).locale(dayjsLocale);
         const targetYear = targetObj.year();
         const targetWeek = targetObj.week();
         const isActive = (targetYear === startYear && targetWeek === startWeek) || (targetYear === endYear && targetWeek === endWeek);
@@ -75,10 +75,12 @@ export default defineComponent({
     };
 
     const multipleWeekRowClass = (value: DateMultipleValue, targetValue: Date) => {
-      const targetDayjs = parseToDayjs(targetValue, props.format);
+      const targetDayjs = parseToDayjs(targetValue, props.format).locale(dayjsLocale);
       if (props.mode !== 'week' || (Array.isArray(value) && !value.length)) return {};
+      // week() 依赖 locale（zh-cn 周一起始 / en 周日起始），周日落在哪一周两边不同；
+      // 两边必须用同一个 locale，否则选中 W40 会高亮 W41（#3922）
       const isSomeYearWeek = value
-        .map?.((v) => parseToDayjs(v, props.format))
+        .map?.((v) => parseToDayjs(v, props.format).locale(dayjsLocale))
         .some((item) => item.week() === targetDayjs.week() && item.year() === targetDayjs.year());
       return {
         [`${COMPONENT_NAME.value}-${props.mode}-row--active`]: isSomeYearWeek,

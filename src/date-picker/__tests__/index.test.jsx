@@ -148,6 +148,43 @@ describe('DatePicker', () => {
     await nextTick();
     expect(document.querySelector('.t-date-picker__panel-month')).not.toBe(null);
   });
+  // #3922: firstDayOfWeek 与 locale 周起始不一致时，面板一行跨越两个自然周，
+  // 点击行内后半周的格子会写入下一周的周数（点标注 52 的行会选中 53 周）。
+  // 修复：week 多选点击按行首（周数列标注）所在周写入与取消。
+  it('mode week multiple: clicking any cell of a week row selects that row (#3922)', async () => {
+    const App = {
+      components: { DatePicker },
+      data() {
+        return { week: [] };
+      },
+      template: '<date-picker v-model="week" mode="week" multiple clearable :first-day-of-week="7" />',
+    };
+    // 先清空残留 DOM，面板 popup 挂在 body 上，避免其他用例残留的面板节点干扰
+    document.body.innerHTML = '';
+    const wrapper = mount(App, { attachToDocument: true });
+    await nextTick();
+    wrapper.find('.t-input').trigger('click');
+    await nextTick();
+    await nextTick();
+    const panel = document.querySelector('.t-date-picker__panel-week');
+    expect(panel).not.toBe(null);
+    const rows = panel.querySelectorAll('tbody tr');
+    let row52Index = -1;
+    rows.forEach((tr, i) => {
+      if (tr.querySelectorAll('td')[0].textContent.trim() === '52' && row52Index < 0) row52Index = i;
+    });
+    expect(row52Index).toBeGreaterThanOrEqual(0);
+    // 点击标注 52 的行内的 12-28（周一；修复前写入 2020-53周，修复后写入 2020-52周）
+    rows[row52Index].querySelectorAll('td')[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await nextTick();
+    await nextTick();
+    expect(wrapper.vm.week).toEqual(['2020-52周']);
+    // 高亮必须落在标注 52 的行上
+    expect(rows[row52Index].className.includes('--active')).toBe(true);
+    wrapper.destroy();
+    document.body.innerHTML = '';
+  });
+
 
   it('mode quarter', async () => {
     const wrapper = mount({
